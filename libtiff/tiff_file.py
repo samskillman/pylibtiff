@@ -19,6 +19,7 @@ from .utils import bytes2str, isindisk
 from .tiff_base import TiffBase
 from .tiff_sample_plane import TiffSamplePlane
 from .tiff_array import TiffArray
+from cStringIO import StringIO
 
 import lsm
 import tif_lzw
@@ -85,47 +86,55 @@ class TIFFfile(TiffBase):
         self.verbose = verbose
         self.first_byte = first_byte
         self.use_memmap = use_memmap
+        file_like = False
         try:
-            if local_cache is not None:
-                cache_filename = local_cache + '/' + filename
-                if os.path.exists(cache_filename):
-                    filename = cache_filename
-                elif not isindisk(filename):
-                    assert isindisk(local_cache),`local_cache`
-                    dirname = os.path.dirname (cache_filename)
-                    if not os.path.isdir(dirname):
-                        os.makedirs(dirname)
-                    shutil.copyfile(filename, cache_filename)
-                    filename = cache_filename
-            if verbose:
-                sys.stdout.write ('Opening file %r\n' % (filename)); sys.stdout.flush()
-            if mode!='r':
-                raise NotImplementedError(`mode`)
-            if not os.path.isfile (filename):
-                raise ValueError ('file does not exists')
-            if not os.stat(filename).st_size:
-                raise ValueError ('file has zero size')
-            if use_memmap:
-                self.data = numpy.memmap(filename, dtype=numpy.ubyte, mode=mode)
-            else:
-                assert mode=='r',`mode`
-                f = open (filename, 'rb')
-                self.data = numpy.frombuffer(f.read(), dtype=numpy.ubyte)
-                f.close()
-        except IOError, msg:
-            if 'Too many open files' in str (msg):
-                raise IOError(IOError_too_many_open_files_hint % msg)
-            if 'Operation not permitted' in str (msg):
-                raise IOError(OSError_operation_not_permitted_hint % msg)
-            raise
-        except OSError, msg:
-            if 'Operation not permitted' in str (msg):
-                raise OSError(OSError_operation_not_permitted_hint % msg)
-            raise
-        except mmap.error, msg:
-            if 'Too many open files' in str (msg):
-                raise mmap.error(IOError_too_many_open_files_hint % msg)
-            raise
+            self.data = numpy.frombuffer(filename.read(), dtype=numpy.ubyte)
+            filename = "in-memory"
+            file_like = True
+        except:
+            pass
+        if not file_like:
+            try:
+                if local_cache is not None:
+                    cache_filename = local_cache + '/' + filename
+                    if os.path.exists(cache_filename):
+                        filename = cache_filename
+                    elif not isindisk(filename):
+                        assert isindisk(local_cache),`local_cache`
+                        dirname = os.path.dirname (cache_filename)
+                        if not os.path.isdir(dirname):
+                            os.makedirs(dirname)
+                        shutil.copyfile(filename, cache_filename)
+                        filename = cache_filename
+                if verbose:
+                    sys.stdout.write ('Opening file %r\n' % (filename)); sys.stdout.flush()
+                if mode!='r':
+                    raise NotImplementedError(`mode`)
+                if not os.path.isfile (filename):
+                    raise ValueError ('file does not exists')
+                if not os.stat(filename).st_size:
+                    raise ValueError ('file has zero size')
+                if use_memmap:
+                    self.data = numpy.memmap(filename, dtype=numpy.ubyte, mode=mode)
+                else:
+                    assert mode=='r',`mode`
+                    f = open (filename, 'rb')
+                    self.data = numpy.frombuffer(f.read(), dtype=numpy.ubyte)
+                    f.close()
+            except IOError, msg:
+                if 'Too many open files' in str (msg):
+                    raise IOError(IOError_too_many_open_files_hint % msg)
+                if 'Operation not permitted' in str (msg):
+                    raise IOError(OSError_operation_not_permitted_hint % msg)
+                raise
+            except OSError, msg:
+                if 'Operation not permitted' in str (msg):
+                    raise OSError(OSError_operation_not_permitted_hint % msg)
+                raise
+            except mmap.error, msg:
+                if 'Too many open files' in str (msg):
+                    raise mmap.error(IOError_too_many_open_files_hint % msg)
+                raise
 
         self.filename = filename
 
